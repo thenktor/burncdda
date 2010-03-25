@@ -14,8 +14,8 @@
 
 echo "Removing burnCDDA files..."
 rm -f /usr/bin/burncdda
-rm -rf /usr/lib/burncdda
-rm -f /usr/man/man1/burncdda.1.gz
+rm -rf /usr/share/burncdda
+rm -f /usr/man/man1/burncdda.1
 rm -f /etc/burncdda.conf
 rm -f /etc/burncdda.conf.old
 rm -f /etc/burncdda.conf.new

@@ -40,16 +40,16 @@ if [ ! -d "${DESTDIR}/usr/bin/" ]; then
 fi
 install -m 755 burncdda "${DESTDIR}/usr/bin/"
 
-if [ ! -d "${DESTDIR}/usr/lib/burncdda" ]; then
-	mkdir -p -m 755 "${DESTDIR}/usr/lib/burncdda"
+if [ ! -d "${DESTDIR}/usr/share/burncdda" ]; then
+	mkdir -p -m 755 "${DESTDIR}/usr/share/burncdda"
 fi
-install -m 644 *.func "${DESTDIR}/usr/lib/burncdda/"
-install -m 644 burncdda.conf "${DESTDIR}/usr/lib/burncdda/burncdda.conf.default"
+install -m 644 *.func "${DESTDIR}/usr/share/burncdda/"
+install -m 644 burncdda.conf "${DESTDIR}/usr/share/burncdda/burncdda.conf.default"
 
 if [ ! -d "${DESTDIR}/usr/man/man1/" ]; then
 	mkdir -p -m 755 "${DESTDIR}/usr/man/man1/"
 fi
-install -m 644 burncdda.1.gz "${DESTDIR}/usr/man/man1"
+install -m 644 burncdda.1 "${DESTDIR}/usr/man/man1"
 
 if [ ! -d "${DESTDIR}/etc/" ]; then
 	mkdir -p -m 755 "${DESTDIR}/etc/"

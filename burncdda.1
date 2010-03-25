@@ -1,0 +1,82 @@
+.\"
+.\" First parameter, NAME, should be all caps
+.\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
+.\" other parameters are allowed: see man(7), man(1)
+.TH BURNCDDA 1 "September  1, 2005"
+.\" Please adjust this date whenever revising the manpage.
+.\"
+.\" Some roff macros, for reference:
+.\" .nh        disable hyphenation
+.\" .hy        enable hyphenation
+.\" .ad l      left justify
+.\" .ad b      justify to both left and right margins
+.\" .nf        disable filling
+.\" .fi        enable filling
+.\" .br        insert line break
+.\" .sp <n>    insert n+1 empty lines
+.\" for manpage-specific macros, see man(7)
+.SH NAME
+burnCDDA \- writes Audio-CDs with cdrdao or cdrecord
+.SH SYNOPSIS
+.B burncdda
+Starts the user interface
+.br
+or
+.br
+.B burncdda [option] file
+.br
+.SH DESCRIPTION
+.B burnCDDA
+is a shell script that copies Audio-CDs with
+.B cdrdao
+or writes new Audio-CDs with
+.B cdrecord.
+You can burn M3U playlists or directories with MP3, Ogg Vorbis, Musepack, Flac, WMA, M4A and WAV files.
+.SH OPTIONS
+.B -b file
+Burn M3U playlist 
+.br
+.B -c file
+Check MP3s in M3U playlist
+.SH CONFIG FILES
+All settings are saved in config files:
+.B /etc/burncdda.conf
+(OR
+.B ~/.burncdda
+). See
+.B /etc/burncdda.conf
+for further information!
+.SH WHAT IT DOES
+.B Copy CD:
+First writes A BIN and a TOC file to the hard disk and then burns an Audio-CD of them.
+.sp 1
+.B Burn playlist/directory:
+Converts files in the playlist/directorie to WAVs named example.XX.wav and burns them to CD-R.
+.sp 1
+.B Check files in playlist/directory:
+Checks the files in the playlist/directory for errors.
+.sp 1
+.B Burn WAV/Image files:
+Burns converted WAVs or ripped TOC/BIN files.
+.SH OPTIONS
+.B Normalize:
+Uses normalize to get the same loudness on all CD tracks. Useful for sampler CDs but not recommended to be used at albums.
+.sp 1
+.B CD-Extra:
+Burns a CD-Extra (mixed mode CD): Audio tracks go to the first session, the source audio files go to the second session.
+This way CD-Players should only see the audio tracks but you can mount the CD on computers to see the source audio files.
+Useful if you burn CDs from lossy audio files and you want to have mp3 files again in the future.
+.SH BUGS
+Please report them!
+.SH SEE ALSO
+.BR cdrdao (1), cdrecord (1), mplayer (1), mpg123 (1), oggdec (1), flac (1), normalize (1), sox (1),
+.br
+.SH AUTHOR
+.B burnCDDA
+(C) 2001 by Thorsten Muehlfelder <thenktor@gmx.de>
+.SH LICENSE
+.B burnCDDA
+comes with ABSOLUTELY NO WARRANTY.
+This is free software, and you are welcome to redistribute it
+under terms of the GNU General Public License as published
+by the Free Software Foundation.

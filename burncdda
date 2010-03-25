@@ -23,7 +23,7 @@
 trap 'forcedkill' 1 2 3 15
 
 # some variables
-VERSION="1.8.2"
+VERSION="1.8.3"
 CONFNEEDED="180"
 BACKTITLE="burnCDDA $VERSION"
 ERROR="An error ocurred:"
@@ -108,9 +108,9 @@ if [ $CONFVERSION != "$CONFNEEDED" ]; then
 	       --yesno "Wrong burncdda.conf version found. Please use the config file that comes with this burncdda version! Otherwise burncdda will not work correctly. Do you want to restore the default settings of this release?" 8 60
 		if [ $? = "0" ]; then
 			clear
-			echo "cp /usr/lib/burncdda/burncdda.conf.default /etc/burncdda.conf"
+			echo "cp /usr/share/burncdda/burncdda.conf.default /etc/burncdda.conf"
 			echo "Please enter your root password..."
-			su -c "cp /usr/lib/burncdda/burncdda.conf.default /etc/burncdda.conf"
+			su -c "cp /usr/share/burncdda/burncdda.conf.default /etc/burncdda.conf"
 		if [ $? = "1" ]; then
 			echo -e "\nError: Failed to save '/etc/burncdda.conf'!\n"
 			exit 1
@@ -162,11 +162,11 @@ TEXTFILE=`$MKTEMP /tmp/burncdda.text.XXXXXX`
 DIRFILE=`$MKTEMP /tmp/burncdda.dir.XXXXXX`
 
 # read common functions
-if [ -r "/usr/lib/burncdda/common.func" ]; then
-	source "/usr/lib/burncdda/common.func"
+if [ -r "/usr/share/burncdda/common.func" ]; then
+	source "/usr/share/burncdda/common.func"
 else
 	echo "Fatal error!"
-	echo "File not found: /usr/lib/burncdda/common.func"
+	echo "File not found: /usr/share/burncdda/common.func"
 	test -e "$TEMPFILE" && rm -f "$TEMPFILE"
 	test -e "$TEXTFILE" && rm -f "$TEXTFILE"
 	test -e "$DIRFILE" && rm -f "$DIRFILE"
@@ -180,8 +180,8 @@ createimgdir # common.func
 checkreqtools # common.func
 
 # read other functions
-testsource /usr/lib/burncdda/decodenorm.func
-testsource /usr/lib/burncdda/checkm3u.func
+testsource /usr/share/burncdda/decodenorm.func
+testsource /usr/share/burncdda/checkm3u.func
 
 # check the command line options
 commandlineopts "$1" "$2" # common.func
@@ -561,7 +561,7 @@ while [ $MENULEVEL -ge 0 ]; do
 		;;
 
 		6)
-		testsource /usr/lib/burncdda/setup.func
+		testsource /usr/share/burncdda/setup.func
 		bc_setup_menu # setup.func
 		;;
 
