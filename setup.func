@@ -1,0 +1,298 @@
+#!/usr/bin/env bash
+#------------------------------------------------------------------------------
+# burnCDDA is a shell script for burning Audio-CDs with
+# cdrdao and cdrecord.
+#
+# (C) 2001 by Thorsten Muehlfelder <thenktor@gmx.de>
+#
+# This program is free software; you can redistribute it and/or 
+# modify it under the terms of the GNU General Public License (version 2)
+# as published by the Free Software Foundation;
+# 
+# This program is distributed in the hope that it will be useful, 
+# but WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+# GNU General Public License for more details. 
+# 
+# You should have received a copy of the GNU General Public License 
+# along with this program; if not, write to the Free Software 
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
+#------------------------------------------------------------------------------
+
+# Edit path function
+bc_setup_expert_path()
+{
+MENULEVEL=3
+while [ $MENULEVEL -ge 3 ]; do
+	$DIALOG --backtitle "$BACKTITLE" --title "Setup - Expert - Pathes" \
+		--menu "THIS DOES NOT WORK YET" 20 60 13 \
+	"S Save settings to" "/etc/burncdda.conf" \
+	"------------------" "------------------" \
+	"1 cdrecord" "$CDRECORD" \
+	"2 cdrdao" "$CDRDAO" \
+	"----------" "----------" \
+	"3 mplayer" "$MPLAYER" \
+	"4 normalize" "$NORMALIZE" \
+	"5 mp3_check" "$MP3_CHECK" \
+	"6 ogginfo" "$OGGINFO" \
+	"7 flac (for filecheck)" "$FLACCHK" \
+	"8 mpg321" "$MPG321" \
+	"9 oggdec" "$OGGDEC" \
+	"10 flac (for decoding)" "$FLACDEC" \
+	"11 mppdec" "$MPPDEC" \
+	"12 sox" "$SOX" \
+	"----------" "----------" \
+	"13 gawk" "$GAWK" \
+	"14 dialog" "$DIALOG" \
+	"15 find" "$FIND" \
+	"16 grep" "$GREP" \
+	"17 head" "$HEAD" \
+	"18 mktemp" "$MKTEMP" \
+	"19 nice" "$NICE" \
+	"20 sed" "$SED" \
+	"21 sort" "$SORT" \
+	"22 tail" "$TAIL" \
+	"23 tr" "$TR" \
+	"24 wc" "$WC" \
+	"25 Back" "Setup menu" 2> $TEMPFILE
+
+	# if cancel exit menu
+	if [ $? = "1" ]; then
+		MENULEVEL=1
+		continue
+	fi
+
+	CHOICE=`$CAT $TEMPFILE`
+
+	case $CHOICE in
+		*)
+		MENULEVEL=2
+		continue
+		;;
+	esac
+done
+}
+
+# Expert menu function
+bc_setup_expert()
+{
+MENULEVEL=2
+while [ $MENULEVEL -ge 2 ]; do
+	$DIALOG --backtitle "$BACKTITLE" --title "Setup - Expert" --menu "THIS DOES NOT WORK YET" 18 60 11 \
+	"S Save settings to" "/etc/burncdda.conf" \
+	"----------------------" "------------------" \
+	"1 Nice level" "$NICELEVEL" \
+	"2 Normalize amplitude" "$NORMAMP" \
+	"3 cdrecord driver opts" "$DRIVEROPTS" \
+	"4 cdrecord other opts" "$OTHERREC" \
+	"5 cdrdao read driver" "$DRVRDAO" \
+	"6 cdrdao write driver" "$DRVWDAO" \
+	"7 cdrdao paranioa mode" "$PARANOIAMODE" \
+	"----------------------" "------------------" \
+	"P Edit program pathes" "path sub menu" 2> $TEMPFILE
+
+	# if cancel exit menu
+	if [ $? = "1" ]; then
+		MENULEVEL=1
+		continue
+	fi
+
+	CHOICE=`$CAT $TEMPFILE`
+
+	case $CHOICE in
+		"P Edit program pathes")
+		bc_setup_expert_path
+		;;
+
+		*)
+		MENULEVEL=1
+		continue
+		;;
+	esac
+done
+}
+
+# save settings to /etc/burncdda.conf
+function savesettings()
+{
+clear
+echo "Saving /etc/burncdda.conf"
+echo "Please enter your root password..."
+$SU -c "$SED -i \
+	-e "s°^COLORS=.*°COLORS=\"$COLORS\"°" \
+	-e "s°^WRITESPEED=.*°WRITESPEED=\"$WRITESPEED\"°" \
+	-e "s°^DEVICE=.*°DEVICE=\"$DEVICE\"°" \
+	-e "s°^NORMAMP=.*°NORMAMP=\"$NORMAMP\"°" \
+	-e "s°^CDRECORD=.*°CDRECORD=\"$CDRECORD\"°" \
+	/etc/burncdda.conf"
+if [ $? != "0" ]; then
+	echo -e "\n${RED}Error:${NOCOLOR} Failed to save '/etc/burncdda.conf'!\n"
+else
+	CONFCHANGED="0"
+	readconfig
+	consolecolors
+	echo -e "\n${GREEN}Saved${NOCOLOR}\n"
+fi
+echo -e "${BLUE}Press any key${NOCOLOR}"
+read -n1
+}
+
+
+#
+# Setup menu function
+#
+bc_setup_menu()
+{
+CONFCHANGED="0"
+while [ $MENULEVEL -ge 1 ]; do
+	$DIALOG --backtitle "$BACKTITLE" --title "Setup" --menu "What do you want to edit?" 16 60 9 \
+	"S Save settings to" "/etc/burncdda.conf" \
+	"----------------------" "----------------------" \
+	"1 Console colors" "$COLORS" \
+	"2 CD writing speed" "$WRITESPEED" \
+	"3 CD writer device" "$DEVICE" \
+	"4 Normalize amplitude" "$NORMAMP" \
+	"5 cdrecord executable" "$CDRECORD" \
+	"----------------------" "----------------------" \
+	"V View" "/etc/burncdda.conf" 2> $TEMPFILE
+
+	# if cancel exit menu
+	if [ $? = "1" ]; then
+		MENULEVEL=0
+		# if config has changed ask if it should be saved
+		if [ "$CONFCHANGED" = "1" ]; then
+			$DIALOG --backtitle "$BACKTITLE" --title "Setup" \
+				--yesno "Do you want to save your settings?" 6 60
+			# yes: save settings
+			if [ $? = "0" ]; then
+				savesettings
+			# no: reload config to restore old settings
+			else
+				readconfig
+			fi
+		fi
+		continue
+	fi
+
+	CHOICE=`$CAT $TEMPFILE`
+
+	case $CHOICE in
+		"S Save settings to")
+		savesettings
+		;;
+
+		"1 Console colors")
+		RADIOLISTOPTS=""
+		for TEMPVAR in BRIGHT DARK NO; do
+			if [ "$TEMPVAR" = "$COLORS" ]; then
+				RADIOLISTOPTS="$RADIOLISTOPTS $TEMPVAR colors on"
+			else
+				RADIOLISTOPTS="$RADIOLISTOPTS $TEMPVAR colors off"
+			fi
+		done
+		$DIALOG --backtitle "$BACKTITLE" --title "Setup -> Console colors" \
+			--radiolist "Some output is colored. Choose if these colors should be 'BRIGHT' (if you have a dark terminal background), 'DARK' (if you have a bright terminal background) or if 'NO' colors should be used. Default: 'BRIGHT'" 14 60 3 $RADIOLISTOPTS 2> $TEMPFILE
+		if [ $? = "1" ]; then
+			continue
+		fi
+		# get new value and test if it has changed
+		TEMPVAR=`$CAT $TEMPFILE`
+		if [ "$TEMPVAR" != "$COLORS" ]; then
+			COLORS="$TEMPVAR"
+			CONFCHANGED="1"
+		fi
+		;;
+
+		"2 CD writing speed")
+		# write speed -1 should be showed as Max, the x is added in the next step
+		if [ "$WRITESPEED" = "-1" ]; then
+			WRITESPEED="Ma"
+		fi
+		RADIOLISTOPTS=""
+		for TEMPVAR in 2 4 8 16 32 Ma; do
+			if [ "$TEMPVAR" = "$WRITESPEED" ]; then
+				RADIOLISTOPTS="$RADIOLISTOPTS ${TEMPVAR}x speed on"
+			else
+				RADIOLISTOPTS="$RADIOLISTOPTS ${TEMPVAR}x speed off"
+			fi
+		done
+		$DIALOG --backtitle "$BACKTITLE" --title "Setup -> CD writing speed" \
+			--radiolist "This defaults to '16x' at the moment because most drives (except very old ones) can write at this speed and it should provide a good writing quality. Even old car CD players should play the CDs. Otherwise you can use 'Max' (-1) and let cdrecord use its internal drive specific maximum speed defaults." 18 60 6 $RADIOLISTOPTS 2> $TEMPFILE
+		if [ $? = "1" ]; then
+			continue
+		fi
+		# # get new value and remove the x from 2x, 4x, ..., Max
+		TEMPVAR=`$CAT $TEMPFILE | $SED -e 's°x$°°'`
+		# if write speed is Ma(x) set it to -1 again
+		if [ "$TEMPVAR" = "Ma" ]; then
+			TEMPVAR="-1"
+		fi
+		# test if it has changed
+		if [ "$TEMPVAR" != "$WRITESPEED" ]; then
+			WRITESPEED="$TEMPVAR"
+			CONFCHANGED="1"
+		fi
+		;;
+
+		"3 CD writer device")
+		$DIALOG --backtitle "$BACKTITLE" --title "Setup -> CD writer device" \
+			--inputbox "CD writer device. Examples: '/dev/cdrom', '/dev/sr0', '0,0,0' or 'ATAPI:0,0,0'. The right setting depends on your kernel version and configuration. On modern systems the default setting should work. Default: '/dev/cdrom'" 11 60 $DEVICE 2> $TEMPFILE
+		if [ $? = "1" ]; then
+			continue
+		fi
+		# get new value and test if it has changed
+		TEMPVAR=`$CAT $TEMPFILE | $SED -e 's°^ *°°' -e 's° *$°°'`
+		if [ "$TEMPVAR" != "$DEVICE" ]; then
+			DEVICE="$TEMPVAR"
+			CONFCHANGED="1"
+		fi
+		;;
+
+		"4 Normalize amplitude")
+		RADIOLISTOPTS=""
+		for TEMPVAR in -12dbfs -10dbfs -8dbfs; do
+			if [ "$TEMPVAR" = "$NORMAMP" ]; then
+				RADIOLISTOPTS="$RADIOLISTOPTS $TEMPVAR amplitude on"
+			else
+				RADIOLISTOPTS="$RADIOLISTOPTS $TEMPVAR amplitude off"
+			fi
+		done
+		$DIALOG --backtitle "$BACKTITLE" --title "Setup -> Normalize amplitude" \
+			--radiolist "Quick help: '-12dbfs': very low volume, recommended for classical music; '-10dbfs': burnCDDA default, medium output volume, recommended for pop/rock; '-8dbfs': high output volume, will surely result in clipping. You can search the web for 'volume race' to get more information about output volumes and why you should not set it too high. Default: '-10dbfs'" 15 60 4 $RADIOLISTOPTS 2> $TEMPFILE
+		if [ $? = "1" ]; then
+			continue
+		fi
+		# get new value and test if it has changed
+		TEMPVAR=`$CAT $TEMPFILE`
+		if [ "$TEMPVAR" != "$NORMAMP" ]; then
+			NORMAMP="$TEMPVAR"
+			CONFCHANGED="1"
+		fi
+		;;
+
+		"5 cdrecord executable")
+		$DIALOG --backtitle "$BACKTITLE" --title "Setup -> cdrecord executable" \
+			--inputbox "If you want to use cdrkit instead of cdrtools try 'wodim' (untested). It is also possible to specify the full path, e.g. '/opt/cdrtools/bin/cdrecord'" 11 60 $CDRECORD 2> $TEMPFILE
+		if [ $? = "1" ]; then
+			continue
+		fi
+		# get new value and test if it has changed
+		TEMPVAR=`$CAT $TEMPFILE | $SED -e 's°^ *°°' -e 's° *$°°'`
+		if [ "$TEMPVAR" != "$CDRECORD" ]; then
+			CDRECORD="$TEMPVAR"
+			CONFCHANGED="1"
+		fi
+		;;
+
+		"V View")
+		$DIALOG --backtitle "$BACKTITLE" --title "Setup -> View /etc/burncdda.conf" \
+			--textbox /etc/burncdda.conf 20 75
+		;;
+
+		*)
+		continue
+		;;
+	esac
+done
+}
+

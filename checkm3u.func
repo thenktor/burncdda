@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+#------------------------------------------------------------------------------
+# burnCDDA is a shell script for burning Audio-CDs with
+# cdrdao and cdrecord.
+#
+# (C) 2001 by Thorsten Muehlfelder <thenktor@gmx.de>
+#
+# This program is free software; you can redistribute it and/or 
+# modify it under the terms of the GNU General Public License (version 2)
+# as published by the Free Software Foundation;
+# 
+# This program is distributed in the hope that it will be useful, 
+# but WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+# GNU General Public License for more details. 
+# 
+# You should have received a copy of the GNU General Public License 
+# along with this program; if not, write to the Free Software 
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
+#------------------------------------------------------------------------------
+
+# errormessage of checkm3u
+function checkerror()
+{
+CORRUPTED=$CORRUPTED+1
+echo -e "\nThis File is${RED} corrupted${NOCOLOR} and can cause bad sound quality!"
+echo -e "${BLUE}Press any key${NOCOLOR}"
+read -n1
+echo ""
+continue
+}
+
+
+# check m3u playlist function
+function checkm3u()
+{
+N=0
+LN=1
+CORRUPTED=0
+NOTSUPPORTED=0
+NOTREADABLE=0
+while [ $LN -le $MAXLN ]; do
+	LINE=`$HEAD -$LN "$PLAYLIST" | $TAIL -1 | $SED s/$'\r'//`
+	# check if first character of the line is "#" and if yes skip the line
+	EXTENDED=`echo "$LINE" | $HEAD -c 1`
+	if [ "$EXTENDED" = "#" ]; then
+		LN=$LN+1
+		continue
+	fi
+	# correct some errors caused by drag and drop from the file manager
+	FILEMANAGER=`echo "$LINE" | $HEAD -c 8`
+	if [ "$FILEMANAGER" = "file:///" ]; then
+		# use # instead of / as separator and substitude file:/// with /
+		# substitude %20 with ' '
+		# WARNING: there are many errors with special characters left
+		# don't know how to fix it in a simple way
+		LINE=`echo "$LINE" | $SED s#^file:///#/# | $SED s/%20/' '/g`
+	fi
+	echo "File: $LINE"
+	# cut the part after the "." and set it as TYP
+	TYP=`echo "$LINE" | $GAWK 'BEGIN { FS = "." } {if (NF > 1) print $NF}' | $TR [:upper:] [:lower:]`
+	N=$N+1
+	LN=$LN+1
+	if [ -r "$LINE" ]; then
+		if [ "$TYP" = "mp3" ]; then
+			echo "mp3_check..."
+			$MP3_CHECK "$LINE" 2> /dev/null 1> /dev/null || checkerror
+			echo -e "${GREEN} OK${NOCOLOR}"
+		elif [ "$TYP" = "ogg" ]; then
+			echo "ogginfo..."
+			$OGGINFO "$LINE" | $GREP "Corrupted ogg" && checkerror
+			echo -e "${GREEN} OK${NOCOLOR}"
+		elif [ "$TYP" = "mpc" ]; then
+			echo "Musepack file. No check possible!"
+		elif [ "$TYP" = "flac" ]; then
+			echo "flac --test..."
+			$FLACCHK --totally-silent --test "$LINE" || checkerror
+			echo -e "${GREEN} OK${NOCOLOR}"
+		elif [ "$TYP" = "wav" ]; then
+			echo "WAV file. No check possible!"
+		elif [ "$TYP" = "" ]; then
+			echo "File format could not be detected. No check possible!"
+		else
+			echo "$TYP file. No check possible!"
+		fi
+	else
+		echo "$LINE does not exist or is not readable."
+		echo -e "${YELLOW}Failed${NOCOLOR}"
+		NOTREADABLE=$NOTREADABLE+1
+	fi
+	echo -e "\n"
+done
+echo -e "\nChecked $MAXN files in '$PLAYLIST':"
+echo -e "mp3_check/ogginfo found${RED} $CORRUPTED ${NOCOLOR}corrupted files!"
+echo -e "${YELLOW}$NOTREADABLE ${NOCOLOR}files did not exist or were not readable."
+}

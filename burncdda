@@ -1,0 +1,576 @@
+#!/usr/bin/env bash
+#------------------------------------------------------------------------------
+# burnCDDA is a shell script for burning Audio-CDs with
+# cdrdao and cdrecord.
+#
+# (C) 2001 by Thorsten Muehlfelder <thenktor@gmx.de>
+#
+# This program is free software; you can redistribute it and/or 
+# modify it under the terms of the GNU General Public License (version 2)
+# as published by the Free Software Foundation;
+# 
+# This program is distributed in the hope that it will be useful, 
+# but WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+# GNU General Public License for more details. 
+# 
+# You should have received a copy of the GNU General Public License 
+# along with this program; if not, write to the Free Software 
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
+#------------------------------------------------------------------------------
+
+# catch SIGINT and SIGTERM, remove TEMPFILE
+trap 'forcedkill' 1 2 3 15
+
+# some variables
+VERSION="1.8.2"
+CONFNEEDED="180"
+BACKTITLE="burnCDDA $VERSION"
+ERROR="An error ocurred:"
+STARTDIR=`pwd`
+PLAYLIST=""
+LINE=""
+WAVNAME=""
+TYP="mp3"
+NORMSET="0"
+EXTENDED=""
+FILEMANAGER=""
+LL="0"
+M3U="m3u"
+IFSBAK="$IFS"
+FILES=""
+KEY=""
+TEMPVAR=""
+CHECKLISTOPTS=""
+RADIOLISTOPTS=""
+CONFCHANGED="0"
+CDEXTRA="0"
+CDEXTRAOFFSET=""
+
+# use no colours as fallback
+RED="\033[0m"
+GREEN="\033[0m"
+YELLOW="\033[0m"
+BLUE="\033[0m"
+NOCOLOR="\033[0m"
+
+# sets integer variables
+declare -i MENULEVEL=0
+declare -i N=0
+declare -i LN=1
+declare -i MAXN=0
+declare -i MAXLN=1
+declare -i LNSELECTED=1
+declare -i MAXLNSELECTED=1
+declare -i FILESIZE=0
+declare -i FILETIME=0
+declare -i CDTIME=0
+declare -i MINUTES=0
+declare -i SECONDS=0
+declare -i CDEXTRATSIZE=0
+declare -i CDEXTRAMB=0
+declare -i CORRUPTED=0
+declare -i DECERROR=0
+declare -i NOTREADABLE=0
+declare -i UNKNOWNERROR=0
+declare -i COLS=`tput cols`
+declare -i ROWS=`tput lines`
+
+# read config file function (used in setup, too)
+function readconfig()
+{
+if [ -r /etc/burncdda.conf ]; then
+	source /etc/burncdda.conf
+else
+	echo ""
+	echo "$ERROR"
+	echo "Check your installation! You don't have a config file."
+	exit 1
+fi
+if [ -r ~/.burncdda ]; then
+	source ~/.burncdda
+fi
+}
+# read config file
+readconfig
+
+# check config file version
+if [ $CONFVERSION != "$CONFNEEDED" ]; then
+	# first check if we can use DIALOG for our error message
+	DIALOG=`which $DIALOG`
+	if [ "$DIALOG" = "" ]; then
+		echo "ERROR: burncdda.conf seems to be outdated and required tool 'dialog' not found!"
+		echo "Please use the config file that comes with this burncdda version!"
+		exit 1
+	fi
+	# if we have DIALOG we can provide a nice error message
+	$DIALOG --backtitle "$BACKTITLE" --title "$ERROR" \
+	       --yesno "Wrong burncdda.conf version found. Please use the config file that comes with this burncdda version! Otherwise burncdda will not work correctly. Do you want to restore the default settings of this release?" 8 60
+		if [ $? = "0" ]; then
+			clear
+			echo "cp /usr/lib/burncdda/burncdda.conf.default /etc/burncdda.conf"
+			echo "Please enter your root password..."
+			su -c "cp /usr/lib/burncdda/burncdda.conf.default /etc/burncdda.conf"
+		if [ $? = "1" ]; then
+			echo -e "\nError: Failed to save '/etc/burncdda.conf'!\n"
+			exit 1
+		else
+			echo -e "\nSaved\n"
+		fi
+		echo -e "Press any key"
+		read -n1
+		readconfig
+		else
+			exit 1
+		fi
+fi
+
+# set colors for console output, config file has to be loaded before!
+# this function is used in setup, too!
+function consolecolors()
+{
+if [ "$COLORS" = "BRIGHT" ]; then
+	RED="\033[1;31m"
+	GREEN="\033[1;32m"
+	YELLOW="\033[1;33m"
+	BLUE="\033[0;36m"
+	NOCOLOR="\033[0m"
+elif [ "$COLORS" = "DARK" ]; then
+	RED="\033[0;31m"
+	GREEN="\033[0;32m"
+	YELLOW="\033[0;33m"
+	BLUE="\033[1;34m"
+	NOCOLOR="\033[0m"
+else
+	RED="\033[0m"
+	GREEN="\033[0m"
+	YELLOW="\033[0m"
+	BLUE="\033[0m"
+	NOCOLOR="\033[0m"
+fi
+}
+# now set colors
+consolecolors
+
+#
+# now all basic settings should be ready, all variables should be set
+#
+
+# create the temp files
+TEMPFILE=`$MKTEMP /tmp/burncdda.temp.XXXXXX`
+TEXTFILE=`$MKTEMP /tmp/burncdda.text.XXXXXX`
+DIRFILE=`$MKTEMP /tmp/burncdda.dir.XXXXXX`
+
+# read common functions
+if [ -r "/usr/lib/burncdda/common.func" ]; then
+	source "/usr/lib/burncdda/common.func"
+else
+	echo "Fatal error!"
+	echo "File not found: /usr/lib/burncdda/common.func"
+	test -e "$TEMPFILE" && rm -f "$TEMPFILE"
+	test -e "$TEXTFILE" && rm -f "$TEXTFILE"
+	test -e "$DIRFILE" && rm -f "$DIRFILE"
+	exit 1
+fi
+
+# create imagedir if necessary
+createimgdir # common.func
+
+# check required tools
+checkreqtools # common.func
+
+# read other functions
+testsource /usr/lib/burncdda/decodenorm.func
+testsource /usr/lib/burncdda/checkm3u.func
+
+# check the command line options
+commandlineopts "$1" "$2" # common.func
+
+# check the size of the terminal
+if [ ${COLS} -lt 80 -o ${ROWS} -lt 24 ]; then
+   echo -e "${RED}ERROR:${NOCOLOR} Your terminal is too small!"
+   echo "Minimum size is 80x24 but you have only ${COLS}x${ROWS} :-("
+   exit1 # common.func
+fi
+
+#
+# main menu -------------------------------------------------------------------------------------------------
+#
+clear
+while [ $MENULEVEL -ge 0 ]; do
+	MENULEVEL=1
+	CDTIME=0
+	cd "$STARTDIR"
+	echo $DIALOG
+	$DIALOG --backtitle "$BACKTITLE" --title "Main Menu" --menu "What do you want to do?" 14 60 7 \
+		1 "Copy CD" \
+		2 "Burn playlist/directory" \
+		3 "Check files in playlist/directory" \
+		4 "Burn WAV/image files" \
+		5 "Delete WAV/image files" \
+		6 "Setup" \
+		7 "Exit" 2> $TEMPFILE
+
+	# if cancel exit menu
+	if [ $? = "1" ]; then
+		MENULEVEL=-1
+		continue
+	fi
+	CHOICE=`$CAT $TEMPFILE`
+	# menu end
+
+	case $CHOICE in
+
+		1)
+		# Copy CD
+		while [ $MENULEVEL -ge 1 ]; do
+			$DIALOG --backtitle "$BACKTITLE" --title "Copy Audio-CD" \
+				--inputbox "Enter CD-image filename (without .bin):" 8 60 2> $TEMPFILE
+			if [ $? = "1" ]; then
+				MENULEVEL=0
+				continue
+			fi
+			CDNAME=`$CAT $TEMPFILE`
+			if [ "$CDNAME" = "" ]; then
+				$DIALOG --backtitle "$BACKTITLE" --title "$ERROR" \
+					--msgbox "You have to enter a CD-image filename!" 6 60
+				continue
+			fi
+			cd "$IMGDIR"
+			if [ -e "$CDNAME.toc" ]; then
+				$DIALOG --backtitle "$BACKTITLE" --title "$ERROR" \
+					--msgbox "'$CDNAME.toc' already exists. Choose another name!" 6 60
+				continue
+			fi
+			mkdir "$CDNAME"
+			cd "$CDNAME"
+			$DIALOG --backtitle "$BACKTITLE" --title "Copy Audio-CD" \
+				--msgbox "\nInsert Audio-CD and press OK to read" 7 40
+			clear
+			$NICE -n $NICELEVEL $CDRDAO read-cd --device $DEVICE --driver $DRVRDAO --paranoia-mode $PARANOIAMODE --datafile "$CDNAME.bin" "$CDNAME.toc"
+			imageinfofile # common.func
+
+			echo -e "\n${BLUE}Insert CD-R and press any key${NOCOLOR} (type c to cancel)"
+			read -n1 KEY
+			if [ "$KEY" = "c" -o "$KEY" = "C" ]; then
+				MENULEVEL=0
+				continue
+			fi
+			echo ""
+			$CDRDAO write --device $DEVICE --driver $DRVWDAO --speed $WRITESPEED "$CDNAME.toc"
+			echo -e "\n${BLUE}Press any key${NOCOLOR}"
+			read -n1
+			MENULEVEL=0
+		done
+		;;
+
+		2)
+		# Burn playlist or directory
+		while [ $MENULEVEL -ge 1 ]; do
+			# finds all *.m3u files in current dir, case insensitive
+			FILES=`$FIND * -iname "*.m3u" -maxdepth 0 -type f -printf %f"\255"playlist"\255"off"\255"`
+			FILES=`echo -e "${FILES}Burn files in current directory\0255directory\0255off\0255"`
+			IFS="$(echo -e "\0255")"
+			# select playlists and writes the selectet filenames to $TEMPFILE
+			$DIALOG --backtitle "$BACKTITLE" --title "Burn playlist/directory to Audio-CD" --separate-output \
+				--checklist "Select playlist(s) with spacebar"  16 60 8 $FILES 2> $TEMPFILE
+			if [ $? = "1" ]; then
+				IFS="$IFSBAK"
+				MENULEVEL=0
+				continue
+			fi
+			IFS="$IFSBAK"
+			MAXLNSELECTED=`$GAWK 'END {print NR}' "$TEMPFILE"`
+			if [ "$MAXLNSELECTED" = "0" ]; then
+				$DIALOG --backtitle "$BACKTITLE" --title "$ERROR" \
+					--msgbox "Nothing to burn. Please select something with spacebar first." 7 60
+				continue
+			fi
+			LNSELECTED=1
+			while [ $LNSELECTED -le $MAXLNSELECTED ]; do
+				LINE=`$HEAD -$LNSELECTED "$TEMPFILE" | $TAIL -1`
+				LINE=`echo "$LINE" | $SED s/$'\r'//`
+				# check if directory is selected
+				if [ "$LINE" = "Burn files in current directory" ]; then
+					# search files, sort them, remove ./ from the beginning, remove m3u... from list
+					$FIND . -maxdepth 1 -type f | $SORT | $SED 's#^\./##' | $GREP -E -i -v "(\.m3u$|\.txt$|\.jpg$|\.png$|\.gif$|\.bmp$|\.zip$|\.rar$\.url$)" > $DIRFILE
+					PLAYLIST="$DIRFILE"
+					WAVNAME=`basename "$STARTDIR"`
+				else
+					PLAYLIST=$LINE
+					# WAVNAME = PLAYLIST without .m3u
+					WAVNAME=`echo "$PLAYLIST" | $SED s/'\.'[Mm]3[Uu]$//`
+				fi
+				if [ ! -r "$PLAYLIST" ]; then
+					$DIALOG --backtitle "$BACKTITLE" --title "$ERROR" \
+						--msgbox "'$PLAYLIST' does not exist or is not readable" 6 60
+					LNSELECTED=$LNSELECTED+1
+					continue
+				fi
+				if [ -e "$IMGDIR/$WAVNAME" ]; then
+					$DIALOG --backtitle "$BACKTITLE" --title "$ERROR" \
+						--msgbox "Playlist $LNSELECTED of $MAXLNSELECTED:\n'$WAVNAME' already exists. Please delete the existing WAVs!" 7 60
+					LNSELECTED=$LNSELECTED+1
+					continue
+				fi
+				filecount # common.func
+				# checks playlist 0 tracks
+				if [ $MAXN -eq 0 ]; then
+					$DIALOG --backtitle "$BACKTITLE" --title "$ERROR" \
+						--msgbox "Playlist $LNSELECTED of $MAXLNSELECTED:\n'$PLAYLIST' is empty" 7 60
+					MENULEVEL=0
+					LNSELECTED=$LNSELECTED+1
+					continue
+				# checks playlist for more than 99 tracks
+				elif [ $MAXN -gt 99 ]; then
+					$DIALOG --backtitle "$BACKTITLE" --title "$ERROR" \
+						--msgbox "Playlist $LNSELECTED of $MAXLNSELECTED:\n'$PLAYLIST'\nThere are $MAXN but you cannot burn more than 99 tracks." 8 60
+					MENULEVEL=0
+					LNSELECTED=$LNSELECTED+1
+					continue
+				fi
+
+				# burning options
+				CHECKLISTOPTS=`echo -e "Normalize CD tracks?\0255option\0255off\0255Create CD-Extra?\0255option\0255off"`
+				IFS="$(echo -e "\0255")"
+				# select options and writes the selectet options to $TEXTFILE
+				$DIALOG --backtitle "$BACKTITLE" --title "Burn playlist/directory to Audio-CD" --separate-output \
+					--checklist "${WAVNAME}: Change options with spacebar"  12 60 2 $CHECKLISTOPTS 2> $TEXTFILE
+				if [ $? = "1" ]; then
+					IFS="$IFSBAK"
+					MENULEVEL=0
+					LNSELECTED=$LNSELECTED+1
+					continue
+				fi
+				IFS="$IFSBAK"
+				# quick and dirty method to set options according to $TEXTFILE
+				NORMSET="0"
+				$GREP "Normalize CD tracks" $TEXTFILE > /dev/null && NORMSET="1"
+				CDEXTRA="0"
+				$GREP "Create CD-Extra" $TEXTFILE > /dev/null && CDEXTRA="1"
+
+				# decode and normalize
+				clear
+				decodenorm # decodenorm.func
+				echo -e "\nBurn CD $LNSELECTED of $MAXLNSELECTED: '$WAVNAME'"
+				echo -e "${BLUE}Insert CD-R and press any key${NOCOLOR} (type c to cancel)"
+				read -n1 KEY
+				if [ "$KEY" = "c" -o "$KEY" = "C" ]; then
+					LNSELECTED=$LNSELECTED+1
+					continue
+				fi
+
+				# burn
+				burncdrecord # common.func
+				echo -e "\nCD $LNSELECTED of $MAXLNSELECTED: '$WAVNAME' finished"
+				echo -e "${BLUE}Press any key${NOCOLOR}"
+				read -n1
+				LNSELECTED=$LNSELECTED+1
+			done
+			MENULEVEL=0
+		done
+		;;
+
+		3)
+		# Check files in playlist or directory
+		while [ $MENULEVEL -ge 1 ]; do
+			# finds all *.m3u files in current dir, case insensitive
+			FILES=`$FIND * -iname "*.m3u" -maxdepth 0 -type f -printf %f"\255"playlist"\255"off"\255"`
+			FILES=`echo -e "${FILES}Check files in current directory\0255directory\0255off\0255"`
+			IFS="$(echo -e "\0255")"
+			# select playlists and writes the selectet filenames to $TEMPFILE
+			$DIALOG --backtitle "$BACKTITLE" --title "Check files in playlist/directory" --separate-output \
+				--checklist "Select playlist(s) with spacebar"  16 60 8 $FILES 2> $TEMPFILE
+			if [ $? = "1" ]; then
+				IFS="$IFSBAK"
+				MENULEVEL=0
+				continue
+			fi
+			IFS="$IFSBAK"
+			MAXLNSELECTED=`$GAWK 'END {print NR}' "$TEMPFILE"`
+			if [ "$MAXLNSELECTED" = "0" ]; then
+				$DIALOG --backtitle "$BACKTITLE" --title "$ERROR" \
+					--msgbox "Nothing to check. Please select something with spacebar first." 7 60
+				continue
+			fi
+			LNSELECTED=1
+			while [ $LNSELECTED -le $MAXLNSELECTED ]; do
+				LINE=`$HEAD -$LNSELECTED "$TEMPFILE" | $TAIL -1`
+				LINE=`echo "$LINE" | $SED s/$'\r'//`
+				# check if directory is selected
+				if [ "$LINE" = "Check files in current directory" ]; then
+					# search files, sort them, remove ./ from the beginning, remove m3u... from list
+					$FIND . -maxdepth 1 -type f | $SORT | $SED 's#^\./##' | $GREP -E -i -v "(\.m3u$|\.txt$|\.jpg$|\.png$|\.gif$|\.bmp$|\.zip$|\.rar$\.url$)" > $DIRFILE
+					PLAYLIST="$DIRFILE"
+				else
+					PLAYLIST=$LINE
+				fi
+				if [ ! -r "$PLAYLIST" ]; then
+					$DIALOG --backtitle "$BACKTITLE" --title "$ERROR" \
+						--msgbox "'$PLAYLIST' does not exist or is not readable" 6 60
+					LNSELECTED=$LNSELECTED+1
+					continue
+				fi
+				filecount # common.func
+				# checks playlist 0 tracks
+				if [ $MAXN -eq 0 ]; then
+					$DIALOG --backtitle "$BACKTITLE" --title "$ERROR" \
+						--msgbox "Playlist $LNSELECTED of $MAXLNSELECTED:\n'$PLAYLIST' is empty" 7 60
+					MENULEVEL=0
+					LNSELECTED=$LNSELECTED+1
+					continue
+				fi
+				clear
+				checkm3u # checkm3u.func
+				echo -e "${BLUE}Press any key${NOCOLOR}"
+				read -n1
+				LNSELECTED=$LNSELECTED+1
+			done
+			MENULEVEL=0
+		done
+		;;
+
+		4)
+		# Burn WAV/image files
+		FILES=""
+		while [ $MENULEVEL -ge 1 ]; do
+			FILES=`$FIND "$IMGDIR" -mindepth 1 -maxdepth 1 -printf %f"\255"image"\255"off"\255"`
+			if [ "$FILES" = "" ]; then
+				$DIALOG --backtitle "$BACKTITLE" --title "Delete WAV/image files" \
+					--msgbox "There are no files in your image directory." 7 60
+				MENULEVEL=0
+				continue
+			fi
+			IFS="$(echo -e "\0255")"
+			$DIALOG --backtitle "$BACKTITLE" --title "Burn WAV/image files" --separate-output \
+				--checklist "Select file(s) with spacebar"  16 60 8 $FILES 2> $TEMPFILE
+			if [ $? = "1" ]; then
+				IFS="$IFSBAK"
+				MENULEVEL=0
+				continue
+			fi
+			IFS="$IFSBAK"
+			MAXLNSELECTED=`$GAWK 'END {print NR}' "$TEMPFILE"`
+			if [ "$MAXLNSELECTED" = "0" ]; then
+				$DIALOG --backtitle "$BACKTITLE" --title "$ERROR" \
+					--msgbox "Nothing to burn. Please select something with spacebar first." 7 60
+				continue
+			fi
+			clear
+			LNSELECTED=1
+			while [ $LNSELECTED -le $MAXLNSELECTED ]; do
+				LINE=`$HEAD -$LNSELECTED "$TEMPFILE" | $TAIL -1`
+				LINE=`echo "$LINE" | $SED s/$'\r'//`
+				if [ "$LINE" = "" ]; then
+					echo "Cannot burn $IMGDIR"
+					LNSELECTED=$LNSELECTED+1
+					continue
+				fi
+				CDNAME=$LINE
+				WAVNAME=$LINE
+				# if IMAGEINFO file exists burn the image
+				if [ -r "$IMGDIR/$CDNAME/IMAGEINFO" ]; then
+					cd "$IMGDIR/$CDNAME"
+					$CAT IMAGEINFO > $TEXTFILE
+					echo -e "\nInsert CD-R and press OK to burn disc $LNSELECTED of $MAXLNSELECTED" >> $TEXTFILE
+					$DIALOG --backtitle "$BACKTITLE" --title "Burn image to Audio-CD" --exit-label "OK" \
+						--textbox $TEXTFILE 16 60
+					clear
+					$CDRDAO write --device $DEVICE --driver $DRVWDAO --speed $WRITESPEED "$CDNAME".toc
+					echo -e "\n${BLUE}Press any key${NOCOLOR}"
+					read -n1
+					LNSELECTED=$LNSELECTED+1
+					continue
+				# if WAVINFO exists burn the WAVs
+				elif [ -r "$IMGDIR/$WAVNAME/WAVINFO" ]; then
+					$CAT "$IMGDIR/$WAVNAME/WAVINFO" > $TEXTFILE
+					echo -e "\nTRACKLIST:\n" >> $TEXTFILE
+					$FIND "$IMGDIR/$WAVNAME/$WAVNAME".*.wav -printf "%f\n" >> $TEXTFILE
+					echo -e "\nInsert CD-R and press OK to burn disc $LNSELECTED of $MAXLNSELECTED" >> $TEXTFILE
+					$DIALOG --backtitle "$BACKTITLE" --title "Burn WAVs to Audio-CD" --exit-label "OK" \
+						--textbox $TEXTFILE 16 60
+					# quick and dirty method to set CDEXTRA according to WAVINFO
+					CDEXTRA="0"
+					$GREP "CD-Extra: yes" "$IMGDIR/$WAVNAME/WAVINFO" > /dev/null && CDEXTRA="1"
+					clear
+
+					# burn
+					burncdrecord # common.func
+					echo -e "\nCD $LNSELECTED of $MAXLNSELECTED: '$WAVNAME' finished"
+					echo -e "\n${BLUE}Press any key${NOCOLOR}"
+					read -n1
+					LNSELECTED=$LNSELECTED+1
+					continue
+				fi
+				# if no toc and no track.01.wav exists -> error
+				$DIALOG --backtitle "$BACKTITLE" --title "$ERROR" \
+					--msgbox "'WAVINFO' and 'IMAGEINFO' could not be found -> Check image!" 8 60
+				LNSELECTED=$LNSELECTED+1
+			done
+			MENULEVEL=0
+		done
+		;;
+
+
+		5)
+		# Delete WAV/image files
+		FILES=""
+		while [ $MENULEVEL -ge 1 ]; do
+			FILES=`$FIND "$IMGDIR" -mindepth 1 -maxdepth 1 -printf %f"\255"image"\255"off"\255"`
+			if [ "$FILES" = "" ]; then
+				$DIALOG --backtitle "$BACKTITLE" --title "Delete WAV/image files" \
+					--msgbox "There are no files in your image directory." 7 60
+				MENULEVEL=0
+				continue
+			fi
+			IFS="$(echo -e "\0255")"
+			$DIALOG --backtitle "$BACKTITLE" --title "Delete WAV/image files" --separate-output \
+				--checklist "Select file(s) with spacebar"  16 60 8 $FILES 2> $TEMPFILE
+			if [ $? = "1" ]; then
+				IFS="$IFSBAK"
+				MENULEVEL=0
+				continue
+			fi
+			IFS="$IFSBAK"
+			MAXLNSELECTED=`$GAWK 'END {print NR}' "$TEMPFILE"`
+			if [ "$MAXLNSELECTED" = "0" ]; then
+				$DIALOG --backtitle "$BACKTITLE" --title "$ERROR" \
+					--msgbox "Nothing to delete. Please select something with spacebar first." 7 60
+				continue
+			fi
+			clear
+			LNSELECTED=1
+			while [ $LNSELECTED -le $MAXLNSELECTED ]; do
+				LINE=`$HEAD -$LNSELECTED "$TEMPFILE" | $TAIL -1`
+				LINE=`echo "$LINE" | $SED s/$'\r'//`
+				if [ "$LINE" = "" ]; then
+					echo "Cannot delete $IMGDIR"
+					LNSELECTED=$LNSELECTED+1
+					continue
+				fi
+				echo "WAV/image files: '$LINE'"
+				echo "Removing files..."
+				rm -r "$IMGDIR/$LINE"
+				echo -e "Done\n"
+				LNSELECTED=$LNSELECTED+1
+			done
+			echo -e "\n${BLUE}Press any key${NOCOLOR}"
+			read -n1
+			MENULEVEL=0
+		done
+		;;
+
+		6)
+		testsource /usr/lib/burncdda/setup.func
+		bc_setup_menu # setup.func
+		;;
+
+		7)
+		# Exit
+		MENULEVEL=-1
+		;;
+	esac
+done
+clear
+exit0 # common.func
+

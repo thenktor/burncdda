@@ -1,0 +1,226 @@
+* 2009/02/19 Version: 1.8.2
+- Small bugfix
+
+* 2009/02/18 Version: 1.8.1
+- Added -bd commandline option
+- No terminal size check for some commandline options
+
+* 2008/04/11 Version: 1.8.0
+- CD-Extra mode added
+- New burning options menu
+- Command line option: full path bug fixed
+- Small bugfixes
+- Man page updated
+
+* 2008/04/01 Version: 1.7.2
+- Fixed a bug in setup function
+
+* 2007/12/22 Version: 1.7.1
+- Changed MB to MiB (mebibyte)
+- Added "-cd" command line option: Check files in current directory
+
+* 2007/10/03 Version: 1.7.0
+- Added a Setup menu
+- Major code reordering
+- Several bugfixes
+- Improved install.sh
+
+* 2007/09/28 Version: 1.6.2a
+- Corrected config version in the package
+- Chmod +x burncdda
+
+* 2007/09/27 Version: 1.6.2
+- Some small code optimizations
+- Now install.sh supports DESTDIR for package creation
+
+* 2007/09/18 Version: 1.6.1
+- Improved main menu
+- Now uses case insensitive search for *.m3u files (finds *.M3u or *.M3U, too)
+- Added CD-time check
+- Updated the man page
+
+* 2007/09/13 Version: 1.6.0
+- Now it is possible to burn contents of a directory without a m3u playlist.
+- Some code fixes
+
+* 2007/06/14 Version: 1.5.4
+- Fixed some errors caused by playlist created by drag and drop from Konqueror/Thunar
+  to Audacious.
+
+* 2007/04/15 Version: 1.5.3
+- Fixed an error caused by an new echo version coming with slackware-current.
+  Hopefully it works with older versions, too.
+
+* 2006/11/14 Version: 1.5.2a
+- Fixed an error in the package
+
+* 2006/11/13 Version: 1.5.2
+- Fixed a problem with some 'head' versions
+- Added 'tr' path to config file ($TR)
+- Small bugfix
+
+* 2006/08/28 Version: 1.5.1
+- Small bugfixes (thanks to Ludwig Ortmann)
+
+* 2006/07/06 Version: 1.5.0a
+- Fixed an error in the config file
+
+* 2006/06/20 Version: 1.5.0
+- Now uses MPlayer for all files. Optionally you can use the old decoders.
+  With MPlayer it is possible to burn much more file formats like WMA, M4A and even
+  audio of video files. MPlayer can do high quality resampling if necessary.
+
+* 2006/03/27 Version: 1.4.3
+- A problem with a newer tail version (5.94 on Slackware 11) fixed
+
+* 2006/03/06 Version: 1.4.2
+- $OGGINFO added to config file
+
+* 2005/09/08 Version: 1.4.1
+- Small usability changes
+- Some variable names changed
+- IMAGEINFO and WAVINFO file in the image directory added. These files now have to
+  exist. If you want to burn old images simply add a textfile called IMAGEINFO in
+  the TOC/BIN directory (or WAVINFO in the WAV directory).
+- Replaced many echo "" commands
+
+* 2005/09/01 Version: 1.4.0
+- The path to the used programs now can be configured. So it should be easier to run
+  burncdda on non-GNU systems.
+- The filecount function now uses awk and is much faster.
+- Changes at file format recognizing.
+- Config file options changed.
+- Config file now has a version number.
+- Some changes in CHANGELOG
+- Default device now is /dev/cdrom
+- man page update
+
+* 2005/08/26 Version: 1.3.8
+- A bug where TOC files could not be found has been fixed.
+- cdrdao now can find the CD writer again.
+
+* 2005/02/17 Version: 1.3.7
+- Colored output (can be tuned to bright/dark colors in burncdda.conf).
+- Changes at file format recognizing.
+
+* 2005/02/15 Version: 1.3.6
+- Support for FLAC audio files (thanks to Mark Murray).
+
+* 2005/02/04 Version: 1.3.5
+- Decoding error counter.
+- Default writing speed: 32.
+- Default cdrecord burn mode: raw.
+
+* 2004/10/14 Version: 1.3.4
+- -b command line option: WAVs are now named like their playlist.
+- Some changes in CHANGELOG
+
+* 2004/08/26 Version: 1.3.3
+- burncdda no longer shows M3U and image directory file sizes.
+
+* 2004/08/23 Version: 1.3.2
+- Playlists can now be selected from a list in burn/convert/check option.
+- More playlists can now be burned in one job.
+- WAVs are now named like their playlist.
+
+* 2004/07/28 Version: 1.3.1
+- Some bugfixes.
+- Images can now be selected from a list in burn/delete option.
+
+* 2004/07/26 Version: 1.3.0
+- Changed some config file options.
+- Only one writing speed setting for cdrecord and cdrdao.
+- Default device now is "/dev/hdc" (for linux 2.6 udev users).
+- cdrdao images are also saved in directories (like the wav files).
+- Delete option added.
+- "burn WAVs" and "burn image" were combined into one option.
+- Nice value for decoding, normalizing, ripping now is adjustable.
+
+* 2004/03/30 Version: 1.2.9
+- New insert cd dialog boxes.
+- Burn WAVs: new tracklist dialog.
+
+* 2004/03/23 Version: 1.2.8
+- Comments in english.
+- Burn WAVs: check if WAVs exist.
+
+* 2003/11/06 Version: 1.2.7
+- Support for Musepack audio files.
+- Bugfixes
+
+* 2003/09/29 Version: 1.2.6
+- Command line options are checked if file is M3U.
+
+* 2003/04/30 Version: 1.2.5
+- Added command line options.
+
+* 2002/12/29 Version: 1.2.4
+- Small usability improvements.
+
+* 2002/11/10 Version: 1.2.3
+- A bug where some files could not be found has been fixed.
+
+* 2002/10/23 Version: 1.2.2
+- BURN-Free option was added to config file.
+
+* 2002/10/08 Version: 1.2.1
+- Better usability.
+- Some documentation/config file changes.
+
+* 2002/07/23 Version: 1.2.0
+- Now supports vorbis-tools 1.0 (ogg123 changed to oggdec).
+- Default cd-reader driver now is generic-mmc.
+
+* 2002/05/21 Version: 1.1.2
+- A bug where some files could not be found has been fixed (thanks to Olivier Guilyardi).
+
+* 2002/04/29 Version: 1.1.1
+- Some small bugfixes.
+- Version naming scheme changed to X.X.X
+
+* 2002/04/11 Version: 1.1
+- A bug where images could not be found has been fixed.
+
+* 2002/03/15 Version: 1.0
+- Changed nice level for Read-CD to 14.
+
+* 2002/02/05 Version: 0.16
+- MP3s can be checked with mp3_check.
+
+* 2002/01/25 Version: 0.15
+- All files will be saved in a default image directory (~/cdda).
+- Support for spaces in all filenames has been added.
+
+* 2002/01/24 Version: 0.12
+- Support for MP3/OGG/WAV playlists was added.
+- Samplerate conversion to 44100 Hz for MP3 files was added.
+
+* 2002/01/22 Version: 0.11
+- Support for windows m3u files.
+
+* 2002/01/03 Version: 0.10
+- burnCDDA shows track and cd time after decoding.
+
+* 2001/12/21 Version: 0.09
+- Now burnCDDA should work with EXT M3U files (but m3u files created
+  in windows still don't work).
+- Some bugfixes.
+
+* 2001/12/15 Version: 0.08
+- It is possible to burn playlists with spaces in the name.
+- Option to convert playlists to WAV was added.
+
+* 2001/12/09 Version: 0.07
+- Some bugfixes.
+- Output of normalize is shown.
+
+* 2001/12/08 Version: 0.06
+- Ogg Vorbis support added.
+- Burn wav added.
+
+* 2001/12/07 Version: 0.05
+- Initial release.
+- CD Read/Write/Copy should work.
+
+
+burnCDDA (C) 2001 by Thorsten Muehlfelder

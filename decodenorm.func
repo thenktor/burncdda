@@ -1,0 +1,223 @@
+#!/usr/bin/env bash
+#------------------------------------------------------------------------------
+# burnCDDA is a shell script for burning Audio-CDs with
+# cdrdao and cdrecord.
+#
+# (C) 2001 by Thorsten Muehlfelder <thenktor@gmx.de>
+#
+# This program is free software; you can redistribute it and/or 
+# modify it under the terms of the GNU General Public License (version 2)
+# as published by the Free Software Foundation;
+# 
+# This program is distributed in the hope that it will be useful, 
+# but WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+# GNU General Public License for more details. 
+# 
+# You should have received a copy of the GNU General Public License 
+# along with this program; if not, write to the Free Software 
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
+#------------------------------------------------------------------------------
+
+# errormessage of decodenorm
+function decerror()
+{
+DECERROR=$DECERROR+1
+echo -e "${RED}WARNING:${NOCOLOR} An error occurred!"
+echo -e "${BLUE}Press any key${NOCOLOR}"
+read -n1
+echo ""
+continue
+}
+
+
+# calculates length of single tracks and adds them to CDTIME
+function timecount()
+{
+FILESIZE=`ls -l "$1" | $GAWK '{print $5}'`
+FILETIME=($FILESIZE/176400)
+MINUTES=($FILETIME/60)
+SECONDS=`expr $FILETIME % 60`
+if [ $SECONDS -le 9 ]; then
+	echo "Track Length: $MINUTES:0$SECONDS"
+else
+	echo "Track Length: $MINUTES:$SECONDS"
+fi
+CDTIME=($CDTIME+$FILETIME)
+}
+
+
+# decode and normalize function
+function decodenorm()
+{
+mkdir "$IMGDIR/$WAVNAME"
+if [ $CDEXTRA = 1 ]; then
+	mkdir "$IMGDIR/$WAVNAME/CD-EXTRA"
+	echo "CD-Extra: yes" > "$IMGDIR/$WAVNAME/WAVINFO"
+else
+	echo "CD-Extra: no" > "$IMGDIR/$WAVNAME/WAVINFO"
+fi
+if [ $NORMSET = 1 ]; then
+	echo "Normalized: yes ($NORMAMP)" >> "$IMGDIR/$WAVNAME/WAVINFO"
+else
+	echo "Normalized: no" >> "$IMGDIR/$WAVNAME/WAVINFO"
+fi
+# reset some variables
+N=0
+LN=1
+DECERROR=0
+NOTREADABLE=0
+CDTIME=0
+CDEXTRATSIZE=0
+while [ $LN -le $MAXLN ]; do
+	LINE=`$HEAD -$LN "$PLAYLIST" | $TAIL -1 | $SED s/$'\r'//`
+	# check if first character of the line is "#" and if yes skip the line
+	EXTENDED=`echo "$LINE" | $HEAD -c 1`
+	if [ "$EXTENDED" = "#" ]; then
+		LN=$LN+1
+		continue
+	fi
+	# correct some errors caused by drag and drop from the file manager
+	FILEMANAGER=`echo "$LINE" | $HEAD -c 8`
+	if [ "$FILEMANAGER" = "file:///" ]; then
+		# use # instead of / as separator and substitude file:/// with /
+		# substitude %20 with ' '
+		# WARNING: there are many errors with special characters left
+		# don't know how to fix it in a simple way
+		LINE=`echo "$LINE" | $SED s#^file:///#/# | $SED s/%20/' '/g`
+	fi
+	echo "File: $LINE"
+	# cut the part after the "." and set it as TYP
+	TYP=`echo "$LINE" | $GAWK 'BEGIN { FS = "." } {if (NF > 1) print $NF}' | $TR [:upper:] [:lower:]`
+	N=$N+1
+	LN=$LN+1
+	if [ $N -le 9 ]; then
+		LL="0"
+	else
+		LL=""
+	fi
+	if [ -r "$LINE" ]; then
+		# copy file to CD-EXTRA directory?
+		if [ $CDEXTRA = 1 ]; then
+			cp "$LINE" "$IMGDIR/$WAVNAME/CD-EXTRA/"
+		fi
+		# decode different file types
+		if [ "$TYP" = "mp3" -a "$MPG321" != "NONE" ]; then
+			echo "mpg321..."
+			$NICE -n $NICELEVEL $MPG321 -q --wav "$IMGDIR/$WAVNAME/$WAVNAME.$LL$N.wav" "$LINE" || decerror
+			echo "--> $WAVNAME.$LL$N.wav"
+			if [ $NORMSET = 1 ]; then
+				echo "normalize..."
+				$NICE -n $NICELEVEL $NORMALIZE -q --amplitude=$NORMAMP "$IMGDIR/$WAVNAME/$WAVNAME.$LL$N.wav" || decerror
+				echo "--> $WAVNAME.$LL$N.wav was normalized to $NORMAMP"
+			fi
+			timecount "$IMGDIR/$WAVNAME/$WAVNAME.$LL$N.wav"
+			echo -e "${GREEN} OK${NOCOLOR}"
+		elif [ "$TYP" = "ogg" -a "$OGGDEC" != "NONE" ]; then
+			echo "oggdec..."
+			$NICE -n $NICELEVEL $OGGDEC -Q -o "$IMGDIR/$WAVNAME/$WAVNAME.$LL$N.wav" "$LINE" || decerror
+			echo "--> $WAVNAME.$LL$N.wav"
+			if [ $NORMSET = 1 ]; then
+				echo "normalize..."
+				$NICE -n $NICELEVEL $NORMALIZE -q --amplitude=$NORMAMP "$IMGDIR/$WAVNAME/$WAVNAME.$LL$N.wav" || decerror
+				echo "--> $WAVNAME.$LL$N.wav was normalized to $NORMAMP"
+			fi
+			timecount "$IMGDIR/$WAVNAME/$WAVNAME.$LL$N.wav"
+			echo -e "${GREEN} OK${NOCOLOR}"
+		elif [ "$TYP" = "mpc" -a "$MPPDEC" != "NONE" ]; then
+			echo "mppdec..."
+			$NICE -n $NICELEVEL $MPPDEC --silent "$LINE" "$IMGDIR/$WAVNAME/$WAVNAME.$LL$N.wav" || decerror
+			echo "--> $WAVNAME.$LL$N.wav"
+			if [ $NORMSET = 1 ]; then
+				echo "normalize..."
+				$NICE -n $NICELEVEL $NORMALIZE -q --amplitude=$NORMAMP "$IMGDIR/$WAVNAME/$WAVNAME.$LL$N.wav" || decerror
+				echo "--> $WAVNAME.$LL$N.wav was normalized to $NORMAMP"
+			fi
+			timecount "$IMGDIR/$WAVNAME/$WAVNAME.$LL$N.wav"
+			echo -e "${GREEN} OK${NOCOLOR}"
+		elif [ "$TYP" = "flac" -a "$FLACDEC" != "NONE" ]; then
+			echo "flac -d..."
+			$NICE -n $NICELEVEL $FLACDEC -s -d -o "$IMGDIR/$WAVNAME/$WAVNAME.$LL$N.wav" "$LINE" || decerror
+			echo "--> $WAVNAME.$LL$N.wav"
+			if [ $NORMSET = 1 ]; then
+				echo "normalize..."
+				$NICE -n $NICELEVEL $NORMALIZE -q --amplitude=$NORMAMP "$IMGDIR/$WAVNAME/$WAVNAME.$LL$N.wav" || decerror
+				echo "--> $WAVNAME.$LL$N.wav was normalized to $NORMAMP"
+			fi
+			timecount "$IMGDIR/$WAVNAME/$WAVNAME.$LL$N.wav"
+			echo -e "${GREEN} OK${NOCOLOR}"
+		elif [ "$TYP" = "wav" -a "$SOX" != "NONE" ]; then
+			echo "sox..."
+			$NICE -n $NICELEVEL $SOX "$LINE" -r 44100 -c 2 "$IMGDIR/$WAVNAME/$WAVNAME.$LL$N.wav" || decerror
+			echo "--> $WAVNAME.$LL$N.wav"
+			if [ $NORMSET = 1 ]; then
+				echo "normalize..."
+				$NICE -n $NICELEVEL $NORMALIZE -q --amplitude=$NORMAMP "$IMGDIR/$WAVNAME/$WAVNAME.$LL$N.wav" || decerror
+				echo "--> $WAVNAME.$LL$N.wav was normalized to $NORMAMP"
+			fi
+			timecount "$IMGDIR/$WAVNAME/$WAVNAME.$LL$N.wav"
+			echo -e "${GREEN} OK${NOCOLOR}"
+		else
+			echo "mplayer..."
+			$NICE -n $NICELEVEL $MPLAYER -really-quiet -noconsolecontrols -vc null -vo null \
+				-ao pcm:waveheader:fast:file="$IMGDIR/$WAVNAME/$WAVNAME.$LL$N.wav" \
+				-af resample=44100:0:2,channels=2 "$LINE" 1> /dev/null 2> /dev/null
+			if [ ! -r "$IMGDIR/$WAVNAME/$WAVNAME.$LL$N.wav" ]; then
+				decerror
+			fi
+			echo "--> $WAVNAME.$LL$N.wav"
+			if [ $NORMSET = 1 ]; then
+				echo "normalize..."
+				$NICE -n $NICELEVEL $NORMALIZE -q --amplitude=$NORMAMP "$IMGDIR/$WAVNAME/$WAVNAME.$LL$N.wav" || decerror
+				echo "--> $WAVNAME.$LL$N.wav was normalized to $NORMAMP"
+			fi
+			timecount "$IMGDIR/$WAVNAME/$WAVNAME.$LL$N.wav"
+			echo -e "${GREEN} OK${NOCOLOR}"
+		fi
+	else
+		echo "$LINE does not exist or is not readable"
+		NOTREADABLE=$NOTREADABLE+1
+		decerror
+	fi
+	echo -e "\n"
+done
+UNKNOWNERROR=$DECERROR-$NOTREADABLE
+if [ $DECERROR -ge 1 ]; then
+	echo -e "WARNING:${RED} $DECERROR ${NOCOLOR}errors occurred at decoding. Perhaps some files will not be burned."
+	echo -e "${RED} $NOTREADABLE ${NOCOLOR}files did not exist or were not readable."
+	echo -e "${RED} $UNKNOWNERROR ${NOCOLOR}unknown errors. \n"
+fi
+echo "Processed $MAXN files in '$WAVNAME':"
+MINUTES=($CDTIME/60)
+SECONDS=`expr $CDTIME % 60`
+if [ $SECONDS -le 9 ]; then
+	echo "Disc Length: $MINUTES:0$SECONDS"
+	echo "Disc Length: $MINUTES:0$SECONDS" >> "$IMGDIR/$WAVNAME/WAVINFO"
+else
+	echo "Disc Length: $MINUTES:$SECONDS"
+	echo "Disc Length: $MINUTES:$SECONDS" >> "$IMGDIR/$WAVNAME/WAVINFO"
+fi
+if [ $CDEXTRA = 1 ]; then
+	# get number of sectors with mkisofs
+	CDEXTRATSIZE=$($MKISOFS -r -J -joliet-long -l -print-size "$IMGDIR/$WAVNAME/CD-EXTRA/" 2>&1 | $TAIL -n1 | $SED -e 's/^.*\ =\ //')
+	# a sector has 2048 bytes, 500 sectors are 1 MiB
+	CDEXTRAMB=($CDEXTRATSIZE/500)
+	echo "Data Size: $CDEXTRAMB MiB ($CDEXTRATSIZE sectors)"
+	echo "Data Size: $CDEXTRAMB MiB" >> "$IMGDIR/$WAVNAME/WAVINFO"
+	# total CDTIME is audio time + data "time" (a second audio uses 75 sectors) + ca. 160 seconds overhead (used by the sessions)
+	CDTIME=($CDTIME+160+$CDEXTRATSIZE/75)
+	MINUTES=($CDTIME/60)
+	SECONDS=`expr $CDTIME % 60`
+	if [ $SECONDS -le 9 ]; then
+		echo "Total Disc Length: $MINUTES:0$SECONDS"
+		echo "Total Disc Length: $MINUTES:0$SECONDS" >> "$IMGDIR/$WAVNAME/WAVINFO"
+	else
+		echo "Total Disc Length: $MINUTES:$SECONDS"
+		echo "Total Disc Length: $MINUTES:$SECONDS" >> "$IMGDIR/$WAVNAME/WAVINFO"
+	fi
+fi
+if [ $MINUTES -ge 80 ]; then
+	echo -e "${YELLOW}WARNING:${NOCOLOR} This may not fit on a standard 80 min. CD-R!"
+	echo "WARNING: This may not fit on a standard 80 min. CD-R!" >> "$IMGDIR/$WAVNAME/WAVINFO"
+fi
+}

@@ -1,0 +1,393 @@
+#!/usr/bin/env bash
+#------------------------------------------------------------------------------
+# burnCDDA is a shell script for burning Audio-CDs with
+# cdrdao and cdrecord.
+#
+# (C) 2001 by Thorsten Muehlfelder <thenktor@gmx.de>
+#
+# This program is free software; you can redistribute it and/or 
+# modify it under the terms of the GNU General Public License (version 2)
+# as published by the Free Software Foundation;
+# 
+# This program is distributed in the hope that it will be useful, 
+# but WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+# GNU General Public License for more details. 
+# 
+# You should have received a copy of the GNU General Public License 
+# along with this program; if not, write to the Free Software 
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. 
+#------------------------------------------------------------------------------
+
+# create IMGDIR
+function createimgdir()
+{
+if [ ! -e "$IMGDIR" ]; then
+	echo "Creating '$IMGDIR'"
+	mkdir -p "$IMGDIR"
+	echo -e "${BLUE}Press any key${NOCOLOR}"
+	read -n1
+fi
+}
+
+
+# check for required tools
+function checkreqtools()
+{
+DIALOG=`which $DIALOG`
+if [ "$DIALOG" = "" ]; then
+	echo -e "${RED}ERROR:${NOCOLOR} Required tool 'dialog' not found!"
+	echo "This is a standard tool and should be installed on every system."
+	echo "Check your '$PATH' or set the right path in '/etc/burncdda.conf'!"
+	exit1 # common.func
+fi
+
+SED=`which $SED`
+if [ "$SED" = "" ]; then
+	echo -e "${RED}ERROR:${NOCOLOR} Required tool 'sed' not found!"
+	echo "This is a standard tool and should be installed on every system."
+	echo "Check your '$PATH' or set the right path in '/etc/burncdda.conf'!"
+	exit1 # common.func
+fi
+
+GAWK=`which $GAWK`
+if [ "$GAWK" = "" ]; then
+	echo -e "${RED}ERROR:${NOCOLOR} Required tool 'gawk' not found!"
+	echo "This is a standard tool and should be installed on every system."
+	echo "Check your '$PATH' or set the right path in '/etc/burncdda.conf'!"
+	exit1 # common.func
+fi
+
+FIND=`which $FIND`
+if [ "$FIND" = "" ]; then
+	echo -e "${RED}ERROR:${NOCOLOR} Required tool 'find' not found!"
+	echo "This is a standard tool and should be installed on every system."
+	echo "Check your '$PATH' or set the right path in '/etc/burncdda.conf'!"
+	exit1 # common.func
+fi
+}
+
+
+# tests if the source file exists and loads it
+function testsource()
+{
+if [ -r "$1" ]; then
+	source "$1"
+else
+	echo "Fatal error!"
+	echo "File not found: $1"
+	exit1
+fi
+}
+
+
+# forced kill
+function forcedkill()
+{
+test -e "$TEMPFILE" && rm -f "$TEMPFILE"
+test -e "$TEXTFILE" && rm -f "$TEXTFILE"
+test -e "$DIRFILE" && rm -f "$DIRFILE"
+echo -e "\n${BLUE}$BACKTITLE${NOCOLOR} (C) by Thorsten Muehlfelder"
+echo -e "Caught an exit signal...\n${RED}Terminating${NOCOLOR}"
+exit 0
+}
+
+
+# normal exit, status 0
+function exit0()
+{
+test -e "$TEMPFILE" && rm -f "$TEMPFILE"
+test -e "$TEXTFILE" && rm -f "$TEXTFILE"
+test -e "$DIRFILE" && rm -f "$DIRFILE"
+echo -e "${BLUE}$BACKTITLE${NOCOLOR} (C) by Thorsten Muehlfelder"
+echo -e "${GREEN}Bye...${NOCOLOR}"
+exit 0
+}
+
+
+# normal exit, status 1
+function exit1()
+{
+test -e "$TEMPFILE" && rm -f "$TEMPFILE"
+test -e "$TEXTFILE" && rm -f "$TEXTFILE"
+test -e "$DIRFILE" && rm -f "$DIRFILE"
+echo -e "\n${BLUE}$BACKTITLE${NOCOLOR} (C) by Thorsten Muehlfelder"
+echo -e "Something went wrong...\n${YELLOW}Aborting${NOCOLOR}"
+exit 1
+}
+
+
+# counts files in playlist (MAXN), counts lines in playlist (MAXLN)
+function filecount()
+{
+MAXLN=`$GAWK 'END {print NR}' "$PLAYLIST"`
+MAXN=$MAXLN-`$GAWK 'BEGIN {FS = "#"} {if (NF > 1 && $1 == "") print $2}' "$PLAYLIST" | $WC -l`
+}
+
+
+# create image info file
+function imageinfofile()
+{
+echo "TOCFILE:  $CDNAME.toc" > IMAGEINFO
+echo "DATAFILE: $CDNAME.bin" >> IMAGEINFO
+FILESIZE=`ls -l "$CDNAME.bin" | $GAWK '{print $5}'`
+FILETIME=($FILESIZE/176400)
+MINUTES=($FILETIME/60)
+SECONDS=`expr $FILETIME % 60`
+FILESIZE=($FILESIZE/1048576)
+echo "SIZE: $FILESIZE MiB" >> IMAGEINFO
+if [ $SECONDS -le 9 ]; then
+	echo "DISCLENGTH: $MINUTES:0$SECONDS" >> IMAGEINFO
+else
+	echo "DISCLENGTH: $MINUTES:$SECONDS" >> IMAGEINFO
+fi
+}
+
+# burn with cdrecord function
+function burncdrecord()
+{
+if [ "$CDEXTRA" = "0" ]; then
+	$CDRECORD "dev=$DEVICE" "speed=$WRITESPEED" $DRIVEROPTS $OTHERREC $WMODE -audio "$IMGDIR/$WAVNAME/$WAVNAME".*.wav
+	if [ ! $? = "0" ]; then
+		echo -e "\n${RED}WARNING:${NOCOLOR} Something went wrong!\n"
+	fi
+else
+	$CDRECORD "dev=$DEVICE" "speed=$WRITESPEED" $DRIVEROPTS $OTHERREC $WMODEEXTRA1 -audio -multi "$IMGDIR/$WAVNAME/$WAVNAME".*.wav
+	if [ ! $? = "0" ]; then
+		echo -e "\n${RED}WARNING:${NOCOLOR} Something went wrong!"
+		echo -e "${BLUE}Press any key to cancel${NOCOLOR} (type d to write data session)"
+		read -n1 KEY
+		if [ "$KEY" = "d" -o "$KEY" = "D" ]; then
+			echo -e "\nTrying to write data session...\n"
+		else
+			LNSELECTED=$LNSELECTED+1
+			continue
+		fi
+	else
+		echo -e "${GREEN}First session written.${NOCOLOR}\n"
+	fi
+	sleep 1
+	echo -n "Getting size of first session: "
+	CDEXTRAOFFSET=$($CDRECORD "dev=$DEVICE" -msinfo 2>&1)
+	if [ ! $? = "0" ]; then
+		echo -e "-\n\n${RED}ERROR:${NOCOLOR} Couldn't get size of first session!"
+		echo -e "${BLUE}Press any key to cancel${NOCOLOR}"
+		read -n1
+		LNSELECTED=$LNSELECTED+1
+		continue
+	else
+		echo -e "$CDEXTRAOFFSET sectors.\n"
+	fi
+	sleep 1
+	# on the fly
+	$MKISOFS -r -J -joliet-long -l -quiet -C $CDEXTRAOFFSET -V "CD-EXTRA" "$IMGDIR/$WAVNAME/CD-EXTRA/" 2> /dev/null \
+		| $CDRECORD "dev=$DEVICE" "speed=$WRITESPEED" $DRIVEROPTS $OTHERREC $WMODEEXTRA2 -tsize=${CDEXTRATSIZE}s -data -
+	if [ ! $? = "0" ]; then
+		echo -e "\n${RED}WARNING:${NOCOLOR} Something went wrong!\n"
+	fi
+	# step by step
+	#$MKISOFS -r -J -joliet-long -l -quiet -C $CDEXTRAOFFSET -V "CD-EXTRA" -o "$IMGDIR/$WAVNAME/CD-EXTRA.iso" "$IMGDIR/$WAVNAME/CD-EXTRA/"
+	#$CDRECORD "dev=$DEVICE" "speed=$WRITESPEED" $DRIVEROPTS $OTHERREC $WMODE -tsize=${CDEXTRATSIZE}s -data "$IMGDIR/$WAVNAME/CD-EXTRA.iso"
+fi
+}
+
+# command line options
+function commandlineopts()
+{
+case $1 in
+
+	-c)
+	PLAYLIST="$2"
+	if [ "$PLAYLIST" = "" ]; then
+		echo -e "\n${RED}ERROR:${NOCOLOR} you have to specify a playlist"
+		exit1 # common.func
+	fi
+	M3U=`echo "$PLAYLIST" | $TAIL -c4 | $TR [:upper:] [:lower:]`
+	if [ ! -r "$PLAYLIST" ]; then
+		echo -e "\n${RED}ERROR:${NOCOLOR} $PLAYLIST does not exist or is not readable"
+		exit1 # common.func
+	fi
+	if [ "$M3U" != "m3u" ]; then
+		echo -e "\n${RED}ERROR:${NOCOLOR} $PLAYLIST is not a M3U file"
+		exit1 # common.func
+	fi
+	clear
+	filecount # common.func
+	checkm3u # checkm3u.func
+	echo ""
+	exit0 # common.func
+	;;
+	
+	-cd)
+	# search files, sort them, remove ./ from the beginning, remove m3u... from list
+	$FIND . -maxdepth 1 -type f | $SORT | $SED 's#^\./##' | $GREP -E -i -v "(\.m3u$|\.txt$|\.jpg$|\.png$|\.gif$|\.bmp$|\.zip$|\.rar$\.url$)" > $DIRFILE
+	PLAYLIST="$DIRFILE"
+	clear
+	filecount # common.func
+	checkm3u # checkm3u.func
+	echo ""
+	exit0 # common.func
+	;;
+
+	-b)
+	# check the size of the terminal
+	if [ ${COLS} -lt 80 -o ${ROWS} -lt 24 ]; then
+		echo -e "${RED}ERROR:${NOCOLOR} Your terminal is too small!"
+		echo "Minimum size is 80x24 but you have only ${COLS}x${ROWS} :-("
+		exit1 # common.func
+	fi
+	PLAYLIST="$2"
+	if [ "$PLAYLIST" = "" ]; then
+		echo -e "\n${RED}ERROR:${NOCOLOR} you have to specify a playlist"
+		exit1 # common.func
+	fi
+	M3U=`echo "$PLAYLIST" | $TAIL -c4 | $TR [:upper:] [:lower:]`
+	if [ ! -r "$PLAYLIST" ]; then
+		echo -e "\n${RED}ERROR:${NOCOLOR} $PLAYLIST does not exist or is not readable"
+		exit1 # common.func
+	fi
+	if [ "$M3U" != "m3u" ]; then
+		echo -e "\n${RED}ERROR:${NOCOLOR} $PLAYLIST is not a M3U file"
+		exit1 # common.func
+	fi
+	# WAVNAME = PLAYLIST without .m3u and without path
+	WAVNAME=`basename "$PLAYLIST" | $SED s/'\.'[Mm]3[Uu]$//`
+	if [ -e "$IMGDIR/$WAVNAME" ]; then
+		echo -e "\n${RED}ERROR:${NOCOLOR} $WAVNAME already exists. Please delete the existing WAVs!"
+		exit1 # common.func
+	fi
+
+	# go to m3u directory
+	cd $(dirname "$PLAYLIST")
+
+	# burning options
+	CHECKLISTOPTS=`echo -e "Normalize CD tracks?\0255option\0255off\0255Create CD-Extra?\0255option\0255off"`
+	IFS="$(echo -e "\0255")"
+	# select options and writes the selectet options to $TEXTFILE
+	$DIALOG --backtitle "$BACKTITLE" --title "Burn playlist/directory to Audio-CD" --separate-output \
+		--checklist "${WAVNAME}: Change options with spacebar"  12 60 2 $CHECKLISTOPTS 2> $TEXTFILE
+	if [ $? = "1" ]; then
+		IFS="$IFSBAK"
+		clear
+		exit0
+	fi
+	IFS="$IFSBAK"
+	# quick and dirty method to set options according to $TEXTFILE
+	NORMSET="0"
+	$GREP "Normalize CD tracks" $TEXTFILE > /dev/null && NORMSET="1"
+	CDEXTRA="0"
+	$GREP "Create CD-Extra" $TEXTFILE > /dev/null && CDEXTRA="1"
+
+	# count files
+	filecount # common.func
+	# checks playlist for more than 99 tracks
+	if [ $MAXN -gt 99 ]; then
+		$DIALOG --backtitle "$BACKTITLE" --title "$ERROR" \
+		       --msgbox "There are $MAXN files in '$PLAYLIST' but you cannot burn more than 99 tracks." 6 60
+		MENULEVEL=0
+		clear
+		continue
+	fi
+	# decode and normalize
+	clear
+	decodenorm
+	echo -e "${BLUE}Insert CD-R and press Enter${NOCOLOR} (type c to cancel)"
+	read -n1 KEY
+	if [ "$KEY" = "c" -o "$KEY" = "C" ]; then
+		echo ""
+		exit0 # common.func
+	fi
+	# burn
+	# we need the while loop as workaround to use the same burncdrecord function like in main program
+	LNSELECTED=1
+	MAXLNSELECTED=1
+	while [ $LNSELECTED -le $MAXLNSELECTED ]; do
+		burncdrecord # common.func
+		LNSELECTED=$LNSELECTED+1
+	done
+	echo ""
+	exit0 # common.func
+	;;
+
+	-bd)
+	# check the size of the terminal
+	if [ ${COLS} -lt 80 -o ${ROWS} -lt 24 ]; then
+		echo -e "${RED}ERROR:${NOCOLOR} Your terminal is too small!"
+		echo "Minimum size is 80x24 but you have only ${COLS}x${ROWS} :-("
+		exit1 # common.func
+	fi
+	# search files, sort them, remove ./ from the beginning, remove m3u... from list
+	$FIND . -maxdepth 1 -type f | $SORT | $SED 's#^\./##' | $GREP -E -i -v "(\.m3u$|\.txt$|\.jpg$|\.png$|\.gif$|\.bmp$|\.zip$|\.rar$\.url$)" > $DIRFILE
+	PLAYLIST="$DIRFILE"
+	WAVNAME=`basename "$STARTDIR"`
+	if [ -e "$IMGDIR/$WAVNAME" ]; then
+		echo -e "\n${RED}ERROR:${NOCOLOR} $WAVNAME already exists. Please delete the existing WAVs!"
+		exit1 # common.func
+	fi
+
+	# burning options
+	CHECKLISTOPTS=`echo -e "Normalize CD tracks?\0255option\0255off\0255Create CD-Extra?\0255option\0255off"`
+	IFS="$(echo -e "\0255")"
+	# select options and writes the selectet options to $TEXTFILE
+	$DIALOG --backtitle "$BACKTITLE" --title "Burn playlist/directory to Audio-CD" --separate-output \
+		--checklist "${WAVNAME}: Change options with spacebar"  12 60 2 $CHECKLISTOPTS 2> $TEXTFILE
+	if [ $? = "1" ]; then
+		IFS="$IFSBAK"
+		clear
+		exit0
+	fi
+	IFS="$IFSBAK"
+	# quick and dirty method to set options according to $TEXTFILE
+	NORMSET="0"
+	$GREP "Normalize CD tracks" $TEXTFILE > /dev/null && NORMSET="1"
+	CDEXTRA="0"
+	$GREP "Create CD-Extra" $TEXTFILE > /dev/null && CDEXTRA="1"
+
+	# count files
+	filecount # common.func
+	# checks playlist for more than 99 tracks
+	if [ $MAXN -gt 99 ]; then
+		$DIALOG --backtitle "$BACKTITLE" --title "$ERROR" \
+		       --msgbox "There are $MAXN files in '$PLAYLIST' but you cannot burn more than 99 tracks." 6 60
+		MENULEVEL=0
+		clear
+		continue
+	fi
+	# decode and normalize
+	clear
+	decodenorm
+	echo -e "${BLUE}Insert CD-R and press Enter${NOCOLOR} (type c to cancel)"
+	read -n1 KEY
+	if [ "$KEY" = "c" -o "$KEY" = "C" ]; then
+		echo ""
+		exit0 # common.func
+	fi
+	# burn
+	# we need the while loop as workaround to use the same burncdrecord function like in main program
+	LNSELECTED=1
+	MAXLNSELECTED=1
+	while [ $LNSELECTED -le $MAXLNSELECTED ]; do
+		burncdrecord # common.func
+		LNSELECTED=$LNSELECTED+1
+	done
+	echo ""
+	exit0 # common.func
+	;;
+
+	"")
+	;;
+
+	*)
+	echo "Usage: burncdda [option] file"
+	echo "   -b  Burn M3U playlist"
+	echo "   -bd Burn files in current directory"
+	echo "   -c  Check files in M3U playlist"
+	echo "   -cd Check files in current directory"
+	echo ""
+	echo "Without command line options the dialog interface will be started"
+	echo "Try 'man burncdda' for more information!"
+	exit0 # common.func
+	;;
+
+esac
+}

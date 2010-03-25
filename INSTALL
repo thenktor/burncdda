@@ -1,0 +1,34 @@
+burnCDDA installation instructions:
+
+Before Installation:
+You need this programms to use all features of burnCDDA:
+
+dialog		http://freshmeat.net/projects/dialog/
+GNU coreutils	http://freshmeat.net/projects/coreutils/
+cdrecord	http://freshmeat.net/projects/cdrecord/
+cdrdao		http://freshmeat.net/projects/cdrdao/
+MPlayer		http://www.mplayerhq.hu/
+
+Recommended:
+normalize	http://freshmeat.net/projects/normalize/
+oggdec		http://freshmeat.net/projects/vorbis-tools/
+mp3_check	http://freshmeat.net/projects/mp3_check/
+flac		http://freshmeat.net/projects/flac/
+
+Optional:
+mpg321		http://freshmeat.net/projects/mpg321/
+oggdec		http://freshmeat.net/projects/vorbis-tools/
+mppdec		http://www.musepack.net/
+sox		http://freshmeat.net/projects/sox/
+
+Installation:
+1) Become root
+2) Run: ./install.sh
+3) Edit /etc/burncdda.conf
+
+Uninstallation:
+1) Become root
+2) Run: ./uninstall.sh
+
+
+burnCDDA (C) 2001 by Thorsten Muehlfelder
