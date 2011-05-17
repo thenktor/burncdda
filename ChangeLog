@@ -1,5 +1,6 @@
-* 2010/03/25 Version: 1.8.3
-- function location changed from /usr/lib/burncdda to /usr/share/burnccda
+* 2011/05/17 Version: 1.8.3
+- Function location changed from /usr/lib/burncdda to /usr/share/burnccda
+- Fixed a problem with command line options
 
 * 2009/02/19 Version: 1.8.2
 - Small bugfix
