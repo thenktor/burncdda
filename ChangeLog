@@ -1,3 +1,7 @@
+* 2012/xxxxx Version: 1.8.4
+- Contact info changed
+- File type exclude list changed
+
 * 2011/05/17 Version: 1.8.3
 - Function location changed from /usr/lib/burncdda to /usr/share/burnccda
 - Fixed a problem with command line options
