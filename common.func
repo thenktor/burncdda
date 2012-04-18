@@ -3,7 +3,7 @@
 # burnCDDA is a shell script for burning Audio-CDs with
 # cdrdao and cdrecord.
 #
-# (C) 2001 by Thorsten Muehlfelder <thenktor@gmx.de>
+# (C) 2001 by Thorsten Muehlfelder <~thenktor~at~gmail~dot~com~>
 #
 # This program is free software; you can redistribute it and/or 
 # modify it under the terms of the GNU General Public License (version 2)
@@ -87,7 +87,7 @@ function forcedkill()
 test -e "$TEMPFILE" && rm -f "$TEMPFILE"
 test -e "$TEXTFILE" && rm -f "$TEXTFILE"
 test -e "$DIRFILE" && rm -f "$DIRFILE"
-echo -e "\n${BLUE}$BACKTITLE${NOCOLOR} (C) by Thorsten Muehlfelder"
+echo -e "\n${BLUE}$BACKTITLE${NOCOLOR} (~thenktor~at~gmail~dot~com~)"
 echo -e "Caught an exit signal...\n${RED}Terminating${NOCOLOR}"
 exit 0
 }
@@ -99,7 +99,7 @@ function exit0()
 test -e "$TEMPFILE" && rm -f "$TEMPFILE"
 test -e "$TEXTFILE" && rm -f "$TEXTFILE"
 test -e "$DIRFILE" && rm -f "$DIRFILE"
-echo -e "${BLUE}$BACKTITLE${NOCOLOR} (C) by Thorsten Muehlfelder"
+echo -e "${BLUE}$BACKTITLE${NOCOLOR} (~thenktor~at~gmail~dot~com~)"
 echo -e "${GREEN}Bye...${NOCOLOR}"
 exit 0
 }
@@ -111,7 +111,7 @@ function exit1()
 test -e "$TEMPFILE" && rm -f "$TEMPFILE"
 test -e "$TEXTFILE" && rm -f "$TEXTFILE"
 test -e "$DIRFILE" && rm -f "$DIRFILE"
-echo -e "\n${BLUE}$BACKTITLE${NOCOLOR} (C) by Thorsten Muehlfelder"
+echo -e "\n${BLUE}$BACKTITLE${NOCOLOR} (~thenktor~at~gmail~dot~com~)"
 echo -e "Something went wrong...\n${YELLOW}Aborting${NOCOLOR}"
 exit 1
 }
@@ -220,7 +220,7 @@ case $1 in
 	
 	-cd)
 	# search files, sort them, remove ./ from the beginning, remove m3u... from list
-	$FIND . -maxdepth 1 -type f | $SORT | $SED 's#^\./##' | $GREP -E -i -v "(\.m3u$|\.txt$|\.jpg$|\.png$|\.gif$|\.bmp$|\.zip$|\.rar$\.url$)" > $DIRFILE
+	$FIND . -maxdepth 1 -type f | $SORT | $SED 's#^\./##' | $GREP -E -i -v "(\.m3u$|\.txt$|\.jpg$|\.png$|\.gif$|\.bmp$|\.zip$|\.rar$|\.url$|\.log$|\.cue$)" > $DIRFILE
 	PLAYLIST="$DIRFILE"
 	clear
 	filecount # common.func
@@ -317,7 +317,7 @@ case $1 in
 		exit1 # common.func
 	fi
 	# search files, sort them, remove ./ from the beginning, remove m3u... from list
-	$FIND . -maxdepth 1 -type f | $SORT | $SED 's#^\./##' | $GREP -E -i -v "(\.m3u$|\.txt$|\.jpg$|\.png$|\.gif$|\.bmp$|\.zip$|\.rar$\.url$)" > $DIRFILE
+	$FIND . -maxdepth 1 -type f | $SORT | $SED 's#^\./##' | $GREP -E -i -v "(\.m3u$|\.txt$|\.jpg$|\.png$|\.gif$|\.bmp$|\.zip$|\.rar$|\.url$|\.log$|\.cue$)" > $DIRFILE
 	PLAYLIST="$DIRFILE"
 	WAVNAME=`basename "$STARTDIR"`
 	if [ -e "$IMGDIR/$WAVNAME" ]; then

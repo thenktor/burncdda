@@ -3,7 +3,7 @@
 # burnCDDA is a shell script for burning Audio-CDs with
 # cdrdao and cdrecord.
 #
-# (C) 2001 by Thorsten Muehlfelder <thenktor@gmx.de>
+# (C) 2001 by Thorsten Muehlfelder <~thenktor~at~gmail~dot~com~>
 #
 # This program is free software; you can redistribute it and/or 
 # modify it under the terms of the GNU General Public License (version 2)
@@ -23,7 +23,7 @@
 trap 'forcedkill' 1 2 3 15
 
 # some variables
-VERSION="1.8.3"
+VERSION="1.8.4svn"
 CONFNEEDED="180"
 BACKTITLE="burnCDDA $VERSION"
 ERROR="An error ocurred:"
@@ -293,7 +293,7 @@ while [ $MENULEVEL -ge 0 ]; do
 				# check if directory is selected
 				if [ "$LINE" = "Burn files in current directory" ]; then
 					# search files, sort them, remove ./ from the beginning, remove m3u... from list
-					$FIND . -maxdepth 1 -type f | $SORT | $SED 's#^\./##' | $GREP -E -i -v "(\.m3u$|\.txt$|\.jpg$|\.png$|\.gif$|\.bmp$|\.zip$|\.rar$\.url$)" > $DIRFILE
+					$FIND . -maxdepth 1 -type f | $SORT | $SED 's#^\./##' | $GREP -E -i -v "(\.m3u$|\.txt$|\.jpg$|\.png$|\.gif$|\.bmp$|\.zip$|\.rar$|\.url$|\.log$|\.cue$)" > $DIRFILE
 					PLAYLIST="$DIRFILE"
 					WAVNAME=`basename "$STARTDIR"`
 				else
@@ -400,7 +400,7 @@ while [ $MENULEVEL -ge 0 ]; do
 				# check if directory is selected
 				if [ "$LINE" = "Check files in current directory" ]; then
 					# search files, sort them, remove ./ from the beginning, remove m3u... from list
-					$FIND . -maxdepth 1 -type f | $SORT | $SED 's#^\./##' | $GREP -E -i -v "(\.m3u$|\.txt$|\.jpg$|\.png$|\.gif$|\.bmp$|\.zip$|\.rar$\.url$)" > $DIRFILE
+					$FIND . -maxdepth 1 -type f | $SORT | $SED 's#^\./##' | $GREP -E -i -v "(\.m3u$|\.txt$|\.jpg$|\.png$|\.gif$|\.bmp$|\.zip$|\.rar$|\.url$|\.log$|\.cue$)" > $DIRFILE
 					PLAYLIST="$DIRFILE"
 				else
 					PLAYLIST=$LINE
