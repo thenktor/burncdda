@@ -3,7 +3,7 @@ burnCDDA is a console frontend to cdrdao, cdrecord, MPlayer, mpg321, oggdec, mpp
 
 ## Installation
 * Install cdrkit, cdrdao and MPlayer from your distributions repository
-* Run install.sh as root
+* Run `install.sh` as root
 
 ## Permissions
 If you have permission errors when attempting to burn a cdrom or dvd image, such as the following:
