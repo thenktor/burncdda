@@ -220,7 +220,7 @@ case $1 in
 	
 	-cd)
 	# search files, sort them, remove ./ from the beginning, remove m3u... from list
-	$FIND . -maxdepth 1 -type f | $SORT | $SED 's#^\./##' | $GREP -E -i -v "(\.m3u$|\.txt$|\.jpg$|\.png$|\.gif$|\.bmp$|\.zip$|\.rar$|\.url$|\.log$|\.cue$)" > $DIRFILE
+	$FIND . -maxdepth 1 -type f | $SORT | $SED 's#^\./##' | $GREP -E -i -v "(\.m3u$|\.txt$|\.jpg$|\.png$|\.gif$|\.bmp$|\.zip$|\.rar$|\.url$|\.log$|\.cue$|\.csv$)" > $DIRFILE
 	PLAYLIST="$DIRFILE"
 	clear
 	filecount # common.func

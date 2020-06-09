@@ -1,6 +1,9 @@
-* 2012/xxxxx Version: 1.8.4
+* 2019/xxxxx Version: 1.8.4
 - Contact info changed
 - File type exclude list changed
+- MPlayer output format set to "format=s16le"
+- Default write mode changed to raw
+- Added .csv to file exclude list
 
 * 2011/05/17 Version: 1.8.3
 - Function location changed from /usr/lib/burncdda to /usr/share/burnccda
