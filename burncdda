@@ -23,7 +23,7 @@
 trap 'forcedkill' 1 2 3 15
 
 # some variables
-VERSION="1.8.4dev"
+VERSION="1.8.4"
 CONFNEEDED="180"
 BACKTITLE="burnCDDA $VERSION"
 ERROR="An error ocurred:"
