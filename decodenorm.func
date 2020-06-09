@@ -161,7 +161,7 @@ while [ $LN -le $MAXLN ]; do
 			echo "mplayer..."
 			$NICE -n $NICELEVEL $MPLAYER -really-quiet -noconsolecontrols -vc null -vo null \
 				-ao pcm:waveheader:fast:file="$IMGDIR/$WAVNAME/$WAVNAME.$LL$N.wav" \
-				-af resample=44100:0:2,channels=2 "$LINE" 1> /dev/null 2> /dev/null
+				-af format=s16le,resample=44100:0:2,channels=2 "$LINE" 1> /dev/null 2> /dev/null
 			if [ ! -r "$IMGDIR/$WAVNAME/$WAVNAME.$LL$N.wav" ]; then
 				decerror
 			fi
