@@ -87,7 +87,6 @@ function forcedkill()
 test -e "$TEMPFILE" && rm -f "$TEMPFILE"
 test -e "$TEXTFILE" && rm -f "$TEXTFILE"
 test -e "$DIRFILE" && rm -f "$DIRFILE"
-echo -e "\n${BLUE}$BACKTITLE${NOCOLOR} (~thenktor~at~gmail~dot~com~)"
 echo -e "Caught an exit signal...\n${RED}Terminating${NOCOLOR}"
 exit 0
 }
@@ -99,7 +98,6 @@ function exit0()
 test -e "$TEMPFILE" && rm -f "$TEMPFILE"
 test -e "$TEXTFILE" && rm -f "$TEXTFILE"
 test -e "$DIRFILE" && rm -f "$DIRFILE"
-echo -e "${BLUE}$BACKTITLE${NOCOLOR} (~thenktor~at~gmail~dot~com~)"
 echo -e "${GREEN}Bye...${NOCOLOR}"
 exit 0
 }
@@ -111,7 +109,6 @@ function exit1()
 test -e "$TEMPFILE" && rm -f "$TEMPFILE"
 test -e "$TEXTFILE" && rm -f "$TEXTFILE"
 test -e "$DIRFILE" && rm -f "$DIRFILE"
-echo -e "\n${BLUE}$BACKTITLE${NOCOLOR} (~thenktor~at~gmail~dot~com~)"
 echo -e "Something went wrong...\n${YELLOW}Aborting${NOCOLOR}"
 exit 1
 }
